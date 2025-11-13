@@ -1,0 +1,33 @@
+<svg width="400" height="500" viewBox="0 0 400 500" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Bucket body -->
+  <path d="M120 200 L110 450 Q110 470 130 475 L270 475 Q290 470 290 450 L280 200 Z" fill="#f0f0f0" stroke="#ccc" stroke-width="3"/>
+  
+  <!-- Bucket rim -->
+  <ellipse cx="200" cy="200" rx="90" ry="25" fill="#e8e8e8" stroke="#bbb" stroke-width="3"/>
+  <ellipse cx="200" cy="200" rx="90" ry="15" fill="#ffffff"/>
+  
+  <!-- Handle -->
+  <path d="M140 190 Q140 140 200 130 Q260 140 260 190" stroke="#999" stroke-width="4" fill="none" stroke-linecap="round"/>
+  
+  <!-- Label background -->
+  <rect x="130" y="280" width="140" height="120" rx="10" fill="#1e3a5f"/>
+  
+  <!-- Label text - PRO -->
+  <text x="200" y="320" font-family="Arial, sans-serif" font-size="32" font-weight="900" fill="#ffffff" text-anchor="middle">PRO</text>
+  
+  <!-- Label text - QUARTZ -->
+  <text x="200" y="355" font-family="Arial, sans-serif" font-size="28" font-weight="700" fill="#ffffff" text-anchor="middle">QUARTZ</text>
+  
+  <!-- Label text - details -->
+  <text x="200" y="385" font-family="Arial, sans-serif" font-size="12" fill="#ffffff" text-anchor="middle">ГРУНТОВКА</text>
+  
+  <!-- Yellow accent -->
+  <path d="M150 250 Q180 245 210 250 Q240 255 260 250" stroke="#FFC107" stroke-width="6" stroke-linecap="round" fill="none"/>
+  
+  <!-- PROFIMASTER logo text -->
+  <text x="200" y="155" font-family="Arial, sans-serif" font-size="14" font-weight="700" fill="#1e3a5f" text-anchor="middle">PROFIMASTER</text>
+  <path d="M140 165 Q170 160 200 165 Q230 168 260 165" stroke="#FFC107" stroke-width="3" stroke-linecap="round" fill="none"/>
+</svg>
+
+
+
