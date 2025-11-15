@@ -231,24 +231,42 @@ window.addEventListener('scroll', () => {
 if (ctaBanner) {
     let touchStartY = 0;
     let touchEndY = 0;
+    let isDragging = false;
+    let currentY = 0;
     
     ctaBanner.addEventListener('touchstart', (e) => {
         touchStartY = e.changedTouches[0].screenY;
+        isDragging = true;
+        ctaBanner.style.transition = 'none';
+    }, { passive: true });
+    
+    ctaBanner.addEventListener('touchmove', (e) => {
+        if (!isDragging) return;
+        currentY = e.changedTouches[0].screenY;
+        const diff = currentY - touchStartY;
+        
+        // Разрешаем только свайп вверх
+        if (diff < 0) {
+            ctaBanner.style.transform = `translateY(${diff}px)`;
+        }
     }, { passive: true });
     
     ctaBanner.addEventListener('touchend', (e) => {
+        if (!isDragging) return;
         touchEndY = e.changedTouches[0].screenY;
-        handleSwipe();
-    }, { passive: true });
-    
-    function handleSwipe() {
+        isDragging = false;
+        ctaBanner.style.transition = 'transform 0.3s ease';
+        
         const swipeDistance = touchStartY - touchEndY;
-        // Если свайп вверх больше 50px, закрываем баннер
-        if (swipeDistance > 50) {
+        // Если свайп вверх больше 30px, закрываем баннер
+        if (swipeDistance > 30) {
             ctaBanner.classList.remove('show');
             ctaBannerVisible = false;
+        } else {
+            // Возвращаем на место
+            ctaBanner.style.transform = '';
         }
-    }
+    }, { passive: true });
 }
 
 // FAB pulse animation
