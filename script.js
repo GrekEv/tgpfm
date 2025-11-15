@@ -227,6 +227,30 @@ window.addEventListener('scroll', () => {
     }
 });
 
+// CTA Banner swipe to dismiss
+if (ctaBanner) {
+    let touchStartY = 0;
+    let touchEndY = 0;
+    
+    ctaBanner.addEventListener('touchstart', (e) => {
+        touchStartY = e.changedTouches[0].screenY;
+    }, { passive: true });
+    
+    ctaBanner.addEventListener('touchend', (e) => {
+        touchEndY = e.changedTouches[0].screenY;
+        handleSwipe();
+    }, { passive: true });
+    
+    function handleSwipe() {
+        const swipeDistance = touchStartY - touchEndY;
+        // Если свайп вверх больше 50px, закрываем баннер
+        if (swipeDistance > 50) {
+            ctaBanner.classList.remove('show');
+            ctaBannerVisible = false;
+        }
+    }
+}
+
 // FAB pulse animation
 const fab = document.getElementById('fab');
 if (fab) {
