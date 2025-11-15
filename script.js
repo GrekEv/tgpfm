@@ -270,24 +270,7 @@ window.addEventListener('scroll', () => {
     }
 });
 
-// Hide FAB when contact section is visible
-window.addEventListener('scroll', () => {
-    const contactSection = document.getElementById('contact');
-    const fab = document.getElementById('fab');
-    
-    if (contactSection && fab) {
-        const rect = contactSection.getBoundingClientRect();
-        const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
-        
-        if (isVisible) {
-            fab.style.opacity = '0';
-            fab.style.pointerEvents = 'none';
-        } else {
-            fab.style.opacity = '1';
-            fab.style.pointerEvents = 'auto';
-        }
-    }
-});
+// FAB is now a phone button, always visible
 
 // Hero video autoplay fix for iOS
 document.addEventListener('DOMContentLoaded', () => {

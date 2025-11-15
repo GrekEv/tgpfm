@@ -175,8 +175,7 @@ body {
 }
 
 .nav-phone {
-    display: flex;
-    align-items: center;
+    display: none;
 }
 
 .nav-phone a {
@@ -2079,6 +2078,7 @@ body {
     border-radius: 50px;
     display: flex;
     align-items: center;
+    justify-content: center;
     gap: 10px;
     cursor: pointer;
     box-shadow: 0 10px 30px rgba(255, 193, 7, 0.5);
@@ -2088,14 +2088,17 @@ body {
     min-width: 44px;
     min-height: 44px;
     touch-action: manipulation;
+    text-decoration: none;
 }
 
 .fab:hover {
     box-shadow: 0 15px 40px rgba(255, 193, 7, 0.6);
+    transform: translateY(-2px);
 }
 
 .fab-icon {
     font-size: 20px;
+    display: inline-block;
 }
 
 .fab-text {
