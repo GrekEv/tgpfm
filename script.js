@@ -333,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 console.log('🚀 M-500 Website loaded successfully!');
 
-// Products Carousel for Mobile
+// Products Carousel for Desktop and Mobile
 function initProductsCarousel() {
     const carousel = document.getElementById('productsCarousel');
     const dotsContainer = document.getElementById('carouselDots');
@@ -489,6 +489,24 @@ function initProductsCarousel() {
             }
         }
     }
+    
+    // Mouse wheel support for desktop
+    let wheelTimeout;
+    carousel.addEventListener('wheel', (e) => {
+        e.preventDefault();
+        clearTimeout(wheelTimeout);
+        
+        wheelTimeout = setTimeout(() => {
+            const current = getCurrentIndex();
+            if (e.deltaY > 0 && current < items.length - 1) {
+                // Scroll down - next item
+                scrollToItem(current + 1);
+            } else if (e.deltaY < 0 && current > 0) {
+                // Scroll up - previous item
+                scrollToItem(current - 1);
+            }
+        }, 50);
+    }, { passive: false });
 }
 
 // Initialize carousel when DOM is loaded
