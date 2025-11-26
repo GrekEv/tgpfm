@@ -227,6 +227,17 @@ window.addEventListener('scroll', () => {
     }
 });
 
+// CTA Banner close button
+const ctaCloseBtn = document.getElementById('ctaCloseBtn');
+if (ctaCloseBtn && ctaBanner) {
+    ctaCloseBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        ctaBanner.classList.remove('show');
+        ctaBannerVisible = false;
+    });
+}
+
 // CTA Banner swipe to dismiss
 if (ctaBanner) {
     let touchStartY = 0;
@@ -340,10 +351,23 @@ function initProductsCarousel() {
     const prevButton = document.getElementById('carouselPrev');
     const nextButton = document.getElementById('carouselNext');
     
-    if (!carousel || !dotsContainer) return;
+    if (!carousel || !dotsContainer) {
+        console.log('Carousel or dots container not found');
+        return;
+    }
+    
+    if (!prevButton || !nextButton) {
+        console.log('Arrow buttons not found', { prevButton, nextButton });
+        return;
+    }
     
     const items = carousel.querySelectorAll('.carousel-item');
-    if (items.length === 0) return;
+    if (items.length === 0) {
+        console.log('No carousel items found');
+        return;
+    }
+    
+    console.log('Carousel initialized with', items.length, 'items');
     
     let currentIndex = 0;
     
@@ -360,6 +384,8 @@ function initProductsCarousel() {
     const dots = dotsContainer.querySelectorAll('.carousel-dot');
     
     function updateActiveItem(index) {
+        if (index < 0 || index >= items.length) return;
+        
         currentIndex = index;
         
         items.forEach((item, i) => {
@@ -380,19 +406,11 @@ function initProductsCarousel() {
         
         // Update arrow states
         if (prevButton) {
-            if (index === 0) {
-                prevButton.classList.add('disabled');
-            } else {
-                prevButton.classList.remove('disabled');
-            }
+            prevButton.classList.toggle('disabled', index === 0);
         }
         
         if (nextButton) {
-            if (index === items.length - 1) {
-                nextButton.classList.add('disabled');
-            } else {
-                nextButton.classList.remove('disabled');
-            }
+            nextButton.classList.toggle('disabled', index === items.length - 1);
         }
     }
     
@@ -400,9 +418,37 @@ function initProductsCarousel() {
         if (index < 0 || index >= items.length) return;
         
         const item = items[index];
-        if (item) {
-            item.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+        if (item && carousel) {
+            // Mark as programmatic scroll
+            isProgrammaticScroll = true;
+            
+            // Update active item immediately
             updateActiveItem(index);
+            
+            // Get current scroll position and carousel dimensions
+            const carouselRect = carousel.getBoundingClientRect();
+            const carouselWidth = carouselRect.width;
+            const currentScroll = carousel.scrollLeft;
+            
+            // Get item position relative to carousel
+            const itemRect = item.getBoundingClientRect();
+            const itemLeftRelative = itemRect.left - carouselRect.left + currentScroll;
+            const itemWidth = itemRect.width;
+            
+            // Calculate target scroll to center the item
+            // Center = item left + half item width - half carousel width
+            const targetScroll = itemLeftRelative + (itemWidth / 2) - (carouselWidth / 2);
+            
+            // Scroll to center the item
+            carousel.scrollTo({
+                left: Math.max(0, targetScroll),
+                behavior: 'smooth'
+            });
+            
+            // Reset flag after scroll completes
+            setTimeout(() => {
+                isProgrammaticScroll = false;
+            }, 600);
         }
     }
     
@@ -418,7 +464,11 @@ function initProductsCarousel() {
             const itemCenter = itemRect.left + itemRect.width / 2;
             const distance = Math.abs(carouselCenter - itemCenter);
             
-            if (distance < closestDistance) {
+            // Check if item is at least partially visible
+            const isVisible = itemRect.right > carouselRect.left && itemRect.left < carouselRect.right;
+            
+            // Prioritize items that are more centered in the carousel
+            if (isVisible && distance < closestDistance) {
                 closestDistance = distance;
                 closestIndex = index;
             }
@@ -428,38 +478,62 @@ function initProductsCarousel() {
     }
     
     // Arrow button handlers
-    if (prevButton) {
-        prevButton.addEventListener('click', () => {
-            const current = getCurrentIndex();
-            if (current > 0) {
-                scrollToItem(current - 1);
-            }
-        });
-    }
-    
-    if (nextButton) {
-        nextButton.addEventListener('click', () => {
-            const current = getCurrentIndex();
-            if (current < items.length - 1) {
-                scrollToItem(current + 1);
-            }
-        });
-    }
-    
-    // Update on scroll
-    let scrollTimeout;
-    carousel.addEventListener('scroll', () => {
-        clearTimeout(scrollTimeout);
-        scrollTimeout = setTimeout(() => {
-            const index = getCurrentIndex();
-            if (index !== currentIndex) {
-                updateActiveItem(index);
-            }
-        }, 100);
+    prevButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const current = getCurrentIndex();
+        if (current > 0) {
+            scrollToItem(current - 1);
+        }
     });
     
-    // Initial update
-    updateActiveItem(0);
+    nextButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const current = getCurrentIndex();
+        if (current < items.length - 1) {
+            scrollToItem(current + 1);
+        }
+    });
+    
+    // Track scrolling state
+    let scrollTimeout;
+    let isProgrammaticScroll = false;
+    
+    // Only track manual scrolling on mobile
+    if (window.innerWidth <= 768) {
+        carousel.addEventListener('scroll', () => {
+            if (!isProgrammaticScroll) {
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(() => {
+                    const index = getCurrentIndex();
+                    if (index !== currentIndex) {
+                        updateActiveItem(index);
+                    }
+                }, 150);
+            }
+        }, { passive: true });
+    }
+    
+    // Initial update - center the second card (index 1)
+    function centerInitialCard() {
+        if (items.length > 1) {
+            // Start with second product (index 1)
+            const initialIndex = 1;
+            updateActiveItem(initialIndex);
+            setTimeout(() => {
+                scrollToItem(initialIndex);
+            }, 100);
+        } else if (items.length > 0) {
+            // Fallback to first if only one item
+            updateActiveItem(0);
+            setTimeout(() => {
+                scrollToItem(0);
+            }, 100);
+        }
+    }
+    
+    centerInitialCard();
     
     // Touch/swipe support
     let touchStartX = 0;
@@ -490,27 +564,35 @@ function initProductsCarousel() {
         }
     }
     
-    // Mouse wheel support for desktop
-    let wheelTimeout;
-    carousel.addEventListener('wheel', (e) => {
-        e.preventDefault();
-        clearTimeout(wheelTimeout);
-        
-        wheelTimeout = setTimeout(() => {
-            const current = getCurrentIndex();
-            if (e.deltaY > 0 && current < items.length - 1) {
-                // Scroll down - next item
-                scrollToItem(current + 1);
-            } else if (e.deltaY < 0 && current > 0) {
-                // Scroll up - previous item
-                scrollToItem(current - 1);
+    // Click on card to center it - only on mobile
+    items.forEach((item, index) => {
+        item.addEventListener('click', (e) => {
+            // Only allow click-to-center on mobile devices
+            if (window.innerWidth > 768) {
+                return;
             }
-        }, 50);
-    }, { passive: false });
+            
+            // Don't trigger if clicking on links or buttons
+            if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('a') || e.target.closest('button')) {
+                return;
+            }
+            scrollToItem(index);
+        });
+    });
 }
 
 // Initialize carousel when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     initProductsCarousel();
+    
+    // Update on window resize
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+        clearTimeout(resizeTimeout);
+        resizeTimeout = setTimeout(() => {
+            const centeredIndex = getCurrentIndex();
+            updateActiveItem(centeredIndex);
+        }, 200);
+    });
 });
 
