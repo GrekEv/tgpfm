@@ -60,36 +60,45 @@ if (!isProduction && (!process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_C
 }
 
 const server = http.createServer((req, res) => {
-    // Настройка CORS для всех запросов
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    // Нормализация URL (убираем query string и trailing slash)
+    const parsedUrl = url.parse(req.url, true);
+    const pathname = parsedUrl.pathname;
 
     // Логирование запросов
     const timestamp = new Date().toISOString();
-    console.log(`[${timestamp}] ${req.method} ${req.url}`);
+    console.log(`[${timestamp}] ${req.method} ${pathname}`);
 
-    // Обработка preflight запросов (OPTIONS) - для любого URL
+    // Настройка CORS для всех запросов
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS, GET');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+
+    // Обработка preflight запросов (OPTIONS) - для ЛЮБОГО URL
     if (req.method === 'OPTIONS') {
+        console.log(`[${timestamp}] OPTIONS request handled successfully`);
         res.writeHead(200, {
             'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS, GET',
             'Access-Control-Allow-Headers': 'Content-Type',
-            'Access-Control-Max-Age': '86400' // 24 часа
+            'Access-Control-Max-Age': '86400', // 24 часа
+            'Content-Length': '0'
         });
         res.end();
         return;
     }
 
     // Обработка GET запросов на корень (health check)
-    if (req.method === 'GET' && req.url === '/') {
-        res.writeHead(200, { 'Content-Type': 'application/json' });
+    if (req.method === 'GET' && pathname === '/') {
+        res.writeHead(200, { 
+            'Content-Type': 'application/json',
+            'Access-Control-Allow-Origin': '*'
+        });
         res.end(JSON.stringify({ status: 'ok', service: 'telegram-bot-server' }));
         return;
     }
 
     // Обработка POST запросов на /send-message
-    if (req.method === 'POST' && req.url === '/send-message') {
+    if (req.method === 'POST' && pathname === '/send-message') {
         let body = '';
 
         req.on('data', chunk => {
@@ -182,17 +191,30 @@ const server = http.createServer((req, res) => {
 
             } catch (error) {
                 console.error('Ошибка парсинга данных:', error);
-                res.writeHead(400, { 'Content-Type': 'application/json' });
-                res.end(JSON.stringify({ success: false, error: 'Неверный формат данных' }));
+                if (!res.headersSent) {
+                    res.writeHead(400, { 
+                        'Content-Type': 'application/json',
+                        'Access-Control-Allow-Origin': '*'
+                    });
+                    res.end(JSON.stringify({ success: false, error: 'Неверный формат данных' }));
+                }
             }
         });
-    } else {
-        res.writeHead(404, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: 'Not found' }));
+        return;
     }
+    
+    // Все остальные запросы - 404
+    console.log(`[${timestamp}] 404 - Method: ${req.method}, Path: ${pathname}`);
+    res.writeHead(404, { 
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+    });
+    res.end(JSON.stringify({ error: 'Not found' }));
 });
 
-server.listen(PORT, () => {
-    console.log(`Сервер запущен на http://localhost:${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`Сервер запущен на порту ${PORT}`);
+    console.log(`Ожидаю запросы на http://0.0.0.0:${PORT}`);
     console.log('Готов к приему заявок из формы');
+    console.log(`NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
 });
