@@ -1,3 +1,10 @@
 {
+  "name": "agara-construction-site",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "npx http-server -p 8000 -o",
+    "server": "node server.js",
+    "dev": "npx http-server -p 8000 -o"
+  },
   "dependencies": {}
 }
