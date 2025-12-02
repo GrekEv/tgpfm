@@ -9,10 +9,11 @@
  * Деплой на хостинг:
  *   См. инструкцию в DEPLOY_SERVER.md
  * 
- * Переменные окружения (опционально, для безопасности):
+ * Переменные окружения (ОБЯЗАТЕЛЬНЫ для продакшена):
  *   TELEGRAM_BOT_TOKEN - токен бота
- *   TELEGRAM_CHAT_ID - ID чата для получения сообщений
+ *   TELEGRAM_CHAT_ID - ID чата для получения сообщений (число)
  *   PORT - порт сервера (на хостинге обычно назначается автоматически)
+ *   NODE_ENV - 'production' для продакшена
  */
 
 const http = require('http');
@@ -20,22 +21,70 @@ const https = require('https');
 const url = require('url');
 const querystring = require('querystring');
 
-// Используем переменные окружения для безопасности (на хостинге)
-// Для локального запуска можно использовать значения по умолчанию
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8169125582:AAHdwp0dqSn3_o2MB4EXdJzuWj4qifsrc3Y';
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '467035682';
+// Проверяем, что мы в продакшене
+const isProduction = process.env.NODE_ENV === 'production';
+
+// Получаем переменные окружения
+// В продакшене они ОБЯЗАТЕЛЬНЫ, в разработке можно использовать fallback
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID_ENV = process.env.TELEGRAM_CHAT_ID;
 const PORT = process.env.PORT || 3000;
 
+// В продакшене требуем переменные окружения
+if (isProduction) {
+    if (!TELEGRAM_BOT_TOKEN) {
+        console.error('ОШИБКА: TELEGRAM_BOT_TOKEN не установлен! Установите переменную окружения.');
+        process.exit(1);
+    }
+    if (!TELEGRAM_CHAT_ID_ENV) {
+        console.error('ОШИБКА: TELEGRAM_CHAT_ID не установлен! Установите переменную окружения.');
+        process.exit(1);
+    }
+}
+
+// Для разработки используем fallback значения (только если не продакшен)
+// ВАЖНО: Эти значения НЕ должны попадать в продакшен!
+const TELEGRAM_BOT_TOKEN_FINAL = TELEGRAM_BOT_TOKEN || (isProduction ? null : '8169125582:AAHdwp0dqSn3_o2MB4EXdJzuWj4qifsrc3Y');
+const TELEGRAM_CHAT_ID = TELEGRAM_CHAT_ID_ENV 
+    ? parseInt(TELEGRAM_CHAT_ID_ENV, 10) 
+    : (isProduction ? null : 467035682);
+
+if (!TELEGRAM_BOT_TOKEN_FINAL || TELEGRAM_CHAT_ID === null || isNaN(TELEGRAM_CHAT_ID)) {
+    console.error('ОШИБКА: Неверные настройки Telegram бота!');
+    process.exit(1);
+}
+
+if (!isProduction && (!process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_CHAT_ID)) {
+    console.warn('⚠️  ВНИМАНИЕ: Используются захардкоженные значения для разработки.');
+    console.warn('⚠️  Для продакшена ОБЯЗАТЕЛЬНО установите переменные окружения TELEGRAM_BOT_TOKEN и TELEGRAM_CHAT_ID!');
+}
+
 const server = http.createServer((req, res) => {
-    // Настройка CORS
+    // Настройка CORS для всех запросов
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    // Обработка preflight запросов
+    // Логирование запросов
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] ${req.method} ${req.url}`);
+
+    // Обработка preflight запросов (OPTIONS) - для любого URL
     if (req.method === 'OPTIONS') {
-        res.writeHead(200);
+        res.writeHead(200, {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'POST, OPTIONS',
+            'Access-Control-Allow-Headers': 'Content-Type',
+            'Access-Control-Max-Age': '86400' // 24 часа
+        });
         res.end();
+        return;
+    }
+
+    // Обработка GET запросов на корень (health check)
+    if (req.method === 'GET' && req.url === '/') {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ status: 'ok', service: 'telegram-bot-server' }));
         return;
     }
 
@@ -45,6 +94,14 @@ const server = http.createServer((req, res) => {
 
         req.on('data', chunk => {
             body += chunk.toString();
+        });
+
+        req.on('error', (error) => {
+            console.error('Ошибка чтения запроса:', error);
+            if (!res.headersSent) {
+                res.writeHead(500, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: 'Ошибка обработки запроса' }));
+            }
         });
 
         req.on('end', () => {
@@ -60,9 +117,9 @@ const server = http.createServer((req, res) => {
                            `🕐 Время: ${new Date().toLocaleString('ru-RU')}`;
 
                 // Отправляем сообщение в Telegram
-                const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
+                const telegramUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN_FINAL}/sendMessage`;
                 const telegramData = JSON.stringify({
-                    chat_id: TELEGRAM_CHAT_ID,
+                    chat_id: TELEGRAM_CHAT_ID, // Уже число после parseInt
                     text: text
                 });
 
@@ -79,6 +136,14 @@ const server = http.createServer((req, res) => {
 
                     telegramRes.on('data', chunk => {
                         telegramBody += chunk.toString();
+                    });
+
+                    telegramRes.on('error', (error) => {
+                        console.error('Ошибка чтения ответа Telegram:', error);
+                        if (!res.headersSent) {
+                            res.writeHead(500, { 'Content-Type': 'application/json' });
+                            res.end(JSON.stringify({ success: false, error: 'Ошибка получения ответа от Telegram' }));
+                        }
                     });
 
                     telegramRes.on('end', () => {
@@ -98,8 +163,10 @@ const server = http.createServer((req, res) => {
                             }
                         } catch (error) {
                             console.error('Ошибка парсинга ответа Telegram:', error);
-                            res.writeHead(500, { 'Content-Type': 'application/json' });
-                            res.end(JSON.stringify({ success: false, error: 'Ошибка обработки ответа' }));
+                            if (!res.headersSent) {
+                                res.writeHead(500, { 'Content-Type': 'application/json' });
+                                res.end(JSON.stringify({ success: false, error: 'Ошибка обработки ответа' }));
+                            }
                         }
                     });
                 });

@@ -88,17 +88,127 @@ window.addEventListener('scroll', () => {
     }
 });
 
+// Telegram Bot Configuration
+const TELEGRAM_BOT_TOKEN = '8169125582:AAHdwp0dqSn3_o2MB4EXdJzuWj4qifsrc3Y';
+// Установите ваш chat_id вручную здесь (можно получить написав боту @userinfobot или @getidsbot)
+// Формат: число, например: 123456789
+// Если оставить null, система попытается получить его автоматически
+let TELEGRAM_CHAT_ID = 467035682;
+
+// Server URL Configuration
+// Для локальной разработки: 'http://localhost:3000'
+// Для продакшена: замените на URL вашего сервера (например: 'https://ваш-сервер.onrender.com')
+const SERVER_URL = 'http://localhost:3000';
+
+// Получить chat_id автоматически (требует, чтобы бот уже получил хотя бы одно сообщение)
+async function getChatId() {
+    try {
+        // Используем прокси для обхода CORS
+        const proxyUrl = 'https://cors-anywhere.herokuapp.com/';
+        const apiUrl = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates`;
+        
+        const response = await fetch(proxyUrl + apiUrl, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Ошибка получения chat_id');
+        }
+        
+        const data = await response.json();
+        if (data.ok && data.result && data.result.length > 0) {
+            // Берем chat_id из последнего сообщения
+            const lastUpdate = data.result[data.result.length - 1];
+            if (lastUpdate.message && lastUpdate.message.chat) {
+                return lastUpdate.message.chat.id;
+            }
+        }
+    } catch (error) {
+        console.error('Ошибка получения chat_id:', error);
+        // Пробуем альтернативный способ - через другой прокси
+        try {
+            const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getUpdates`)}`);
+            const data = await response.json();
+            const updates = JSON.parse(data.contents);
+            if (updates.ok && updates.result && updates.result.length > 0) {
+                const lastUpdate = updates.result[updates.result.length - 1];
+                if (lastUpdate.message && lastUpdate.message.chat) {
+                    return lastUpdate.message.chat.id;
+                }
+            }
+        } catch (err) {
+            console.error('Альтернативный способ получения chat_id также не сработал:', err);
+        }
+    }
+    return null;
+}
+
+// Отправка сообщения в Telegram через наш сервер
+async function sendToTelegram(name, phone, message) {
+    try {
+        console.log('Отправка данных на сервер...', { name, phone, message });
+        
+        const response = await fetch(`${SERVER_URL}/send-message`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: name,
+                phone: phone,
+                message: message
+            })
+        });
+        
+        const data = await response.json();
+        console.log('Ответ от сервера:', data);
+        
+        if (data.success) {
+            return true;
+        } else {
+            console.error('Ошибка отправки:', data.error);
+            return false;
+        }
+    } catch (error) {
+        console.error('Ошибка отправки в Telegram:', error);
+        return false;
+    }
+}
+
 // Form submission
 const contactForm = document.getElementById('contactForm');
 if (contactForm) {
-    contactForm.addEventListener('submit', (e) => {
+    contactForm.addEventListener('submit', async (e) => {
         e.preventDefault();
         
-        // Show success message
-        alert('Спасибо! Ваша заявка отправлена. Мы свяжемся с вами в ближайшее время.');
+        // Получаем данные формы
+        const formData = new FormData(contactForm);
+        const name = formData.get('name');
+        const phone = formData.get('phone');
+        const message = formData.get('message');
         
-        // Reset form
-        contactForm.reset();
+        // Показываем индикатор загрузки
+        const submitButton = contactForm.querySelector('button[type="submit"]');
+        const originalText = submitButton.textContent;
+        submitButton.textContent = 'Отправка...';
+        submitButton.disabled = true;
+        
+        // Отправляем в Telegram
+        const success = await sendToTelegram(name, phone, message);
+        
+        if (success) {
+            alert('Спасибо! Ваша заявка отправлена. Мы свяжемся с вами в ближайшее время.');
+            contactForm.reset();
+        } else {
+            alert('Произошла ошибка при отправке заявки. Пожалуйста, попробуйте позже или свяжитесь с нами по телефону.');
+        }
+        
+        // Восстанавливаем кнопку
+        submitButton.textContent = originalText;
+        submitButton.disabled = false;
     });
 }
 
@@ -280,15 +390,47 @@ if (ctaBanner) {
     }, { passive: true });
 }
 
-// FAB pulse animation
+// FAB expandable menu
+const fabContainer = document.getElementById('fabContainer');
 const fab = document.getElementById('fab');
-if (fab) {
-    setInterval(() => {
-        fab.style.animation = 'pulse 0.6s ease';
-        setTimeout(() => {
-            fab.style.animation = '';
-        }, 600);
-    }, 5000);
+const fabClose = document.getElementById('fabClose');
+
+if (fabContainer && fab) {
+    // Toggle menu on FAB click
+    fab.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        fabContainer.classList.toggle('active');
+    });
+    
+    // Close menu on close button click
+    if (fabClose) {
+        fabClose.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            fabContainer.classList.remove('active');
+        });
+    }
+    
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+        if (fabContainer.classList.contains('active') && 
+            !fabContainer.contains(e.target)) {
+            fabContainer.classList.remove('active');
+        }
+    });
+    
+    // Close menu on menu item click (after navigation)
+    const menuItems = fabContainer.querySelectorAll('.fab-menu-item');
+    menuItems.forEach(item => {
+        if (item !== fabClose) {
+            item.addEventListener('click', () => {
+                setTimeout(() => {
+                    fabContainer.classList.remove('active');
+                }, 300);
+            });
+        }
+    });
 }
 
 // Add pulse animation to CSS via JavaScript
@@ -404,13 +546,13 @@ function initProductsCarousel() {
             }
         });
         
-        // Update arrow states
+        // Убираем disabled для бесконечной карусели
         if (prevButton) {
-            prevButton.classList.toggle('disabled', index === 0);
+            prevButton.classList.remove('disabled');
         }
         
         if (nextButton) {
-            nextButton.classList.toggle('disabled', index === items.length - 1);
+            nextButton.classList.remove('disabled');
         }
     }
     
@@ -477,23 +619,23 @@ function initProductsCarousel() {
         return closestIndex;
     }
     
-    // Arrow button handlers
+    // Arrow button handlers - бесконечная карусель
     prevButton.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         const current = getCurrentIndex();
-        if (current > 0) {
-            scrollToItem(current - 1);
-        }
+        // Бесконечная карусель: если первый элемент, переходим к последнему
+        const prevIndex = current > 0 ? current - 1 : items.length - 1;
+        scrollToItem(prevIndex);
     });
     
     nextButton.addEventListener('click', (e) => {
         e.preventDefault();
         e.stopPropagation();
         const current = getCurrentIndex();
-        if (current < items.length - 1) {
-            scrollToItem(current + 1);
-        }
+        // Бесконечная карусель: если последний элемент, переходим к первому
+        const nextIndex = current < items.length - 1 ? current + 1 : 0;
+        scrollToItem(nextIndex);
     });
     
     // Track scrolling state
@@ -554,12 +696,15 @@ function initProductsCarousel() {
         
         if (Math.abs(diff) > swipeThreshold) {
             const current = getCurrentIndex();
-            if (diff > 0 && current < items.length - 1) {
+            // Бесконечная карусель
+            if (diff > 0) {
                 // Swipe left - next item
-                scrollToItem(current + 1);
-            } else if (diff < 0 && current > 0) {
+                const nextIndex = current < items.length - 1 ? current + 1 : 0;
+                scrollToItem(nextIndex);
+            } else {
                 // Swipe right - previous item
-                scrollToItem(current - 1);
+                const prevIndex = current > 0 ? current - 1 : items.length - 1;
+                scrollToItem(prevIndex);
             }
         }
     }
@@ -581,18 +726,257 @@ function initProductsCarousel() {
     });
 }
 
+// Projects Carousel (same as products)
+function initProjectsCarousel() {
+    const carousel = document.getElementById('projectsCarousel');
+    const dotsContainer = document.getElementById('projectsCarouselDots');
+    const prevButton = document.getElementById('projectsCarouselPrev');
+    const nextButton = document.getElementById('projectsCarouselNext');
+    
+    if (!carousel || !dotsContainer) {
+        return;
+    }
+    
+    if (!prevButton || !nextButton) {
+        return;
+    }
+    
+    const items = carousel.querySelectorAll('.carousel-item');
+    if (items.length === 0) {
+        return;
+    }
+    
+    let currentIndex = 0;
+    let isProgrammaticScroll = false;
+    
+    // Create dots
+    items.forEach((_, index) => {
+        const dot = document.createElement('div');
+        dot.className = 'carousel-dot' + (index === 0 ? ' active' : '');
+        dot.addEventListener('click', () => {
+            scrollToItem(index);
+        });
+        dotsContainer.appendChild(dot);
+    });
+    
+    const dots = dotsContainer.querySelectorAll('.carousel-dot');
+    
+    function updateActiveItem(index) {
+        // Нормализуем индекс для бесконечной карусели
+        if (index < 0) {
+            index = items.length - 1;
+        } else if (index >= items.length) {
+            index = 0;
+        }
+        
+        currentIndex = index;
+        
+        items.forEach((item, i) => {
+            if (i === index) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+        
+        dots.forEach((dot, i) => {
+            if (i === index) {
+                dot.classList.add('active');
+            } else {
+                dot.classList.remove('active');
+            }
+        });
+        
+        // Убираем disabled для бесконечной карусели
+        if (prevButton) {
+            prevButton.classList.remove('disabled');
+        }
+        
+        if (nextButton) {
+            nextButton.classList.remove('disabled');
+        }
+    }
+    
+    function scrollToItem(index) {
+        // Нормализуем индекс для бесконечной карусели
+        if (index < 0) {
+            index = items.length - 1;
+        } else if (index >= items.length) {
+            index = 0;
+        }
+        
+        const item = items[index];
+        if (item && carousel) {
+            isProgrammaticScroll = true;
+            updateActiveItem(index);
+            
+            const carouselRect = carousel.getBoundingClientRect();
+            const carouselWidth = carouselRect.width;
+            const currentScroll = carousel.scrollLeft;
+            
+            const itemRect = item.getBoundingClientRect();
+            const itemLeftRelative = itemRect.left - carouselRect.left + currentScroll;
+            const itemWidth = itemRect.width;
+            
+            const targetScroll = itemLeftRelative + (itemWidth / 2) - (carouselWidth / 2);
+            
+            carousel.scrollTo({
+                left: Math.max(0, targetScroll),
+                behavior: 'smooth'
+            });
+            
+            setTimeout(() => {
+                isProgrammaticScroll = false;
+            }, 600);
+        }
+    }
+    
+    function getCurrentIndex() {
+        const carouselRect = carousel.getBoundingClientRect();
+        const carouselCenter = carouselRect.left + carouselRect.width / 2;
+        
+        let closestIndex = 0;
+        let closestDistance = Infinity;
+        
+        items.forEach((item, index) => {
+            const itemRect = item.getBoundingClientRect();
+            const itemCenter = itemRect.left + itemRect.width / 2;
+            const distance = Math.abs(carouselCenter - itemCenter);
+            
+            const isVisible = itemRect.right > carouselRect.left && itemRect.left < carouselRect.right;
+            
+            if (isVisible && distance < closestDistance) {
+                closestDistance = distance;
+                closestIndex = index;
+            }
+        });
+        
+        return closestIndex;
+    }
+    
+    prevButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const current = getCurrentIndex();
+        // Бесконечная карусель: если первый элемент, переходим к последнему
+        let prevIndex;
+        if (current <= 0) {
+            // Если на первой карточке, сразу переходим к последней
+            prevIndex = items.length - 1;
+        } else {
+            prevIndex = current - 1;
+        }
+        scrollToItem(prevIndex);
+    });
+    
+    nextButton.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const current = getCurrentIndex();
+        // Бесконечная карусель: если последний элемент, переходим к первому
+        let nextIndex;
+        if (current >= items.length - 1) {
+            // Если на последней карточке, сразу переходим к первой
+            nextIndex = 0;
+        } else {
+            nextIndex = current + 1;
+        }
+        scrollToItem(nextIndex);
+    });
+    
+    let scrollTimeout;
+    
+    if (window.innerWidth <= 768) {
+        carousel.addEventListener('scroll', () => {
+            if (!isProgrammaticScroll) {
+                clearTimeout(scrollTimeout);
+                scrollTimeout = setTimeout(() => {
+                    const index = getCurrentIndex();
+                    if (index !== currentIndex) {
+                        updateActiveItem(index);
+                    }
+                }, 150);
+            }
+        }, { passive: true });
+    }
+    
+    function centerInitialCard() {
+        if (items.length > 1) {
+            const initialIndex = 1;
+            updateActiveItem(initialIndex);
+            setTimeout(() => {
+                scrollToItem(initialIndex);
+            }, 100);
+        } else if (items.length > 0) {
+            updateActiveItem(0);
+            setTimeout(() => {
+                scrollToItem(0);
+            }, 100);
+        }
+    }
+    
+    centerInitialCard();
+    
+    let touchStartX = 0;
+    let touchEndX = 0;
+    
+    carousel.addEventListener('touchstart', (e) => {
+        touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+    
+    carousel.addEventListener('touchend', (e) => {
+        touchEndX = e.changedTouches[0].screenX;
+        handleSwipe();
+    }, { passive: true });
+    
+    function handleSwipe() {
+        const swipeThreshold = 50;
+        const diff = touchStartX - touchEndX;
+        
+        if (Math.abs(diff) > swipeThreshold) {
+            const current = getCurrentIndex();
+            // Бесконечная карусель
+            if (diff > 0) {
+                // Swipe left - next item
+                let nextIndex;
+                if (current >= items.length - 1) {
+                    // Если на последней карточке, сразу переходим к первой
+                    nextIndex = 0;
+                } else {
+                    nextIndex = current + 1;
+                }
+                scrollToItem(nextIndex);
+            } else {
+                // Swipe right - previous item
+                let prevIndex;
+                if (current <= 0) {
+                    // Если на первой карточке, сразу переходим к последней
+                    prevIndex = items.length - 1;
+                } else {
+                    prevIndex = current - 1;
+                }
+                scrollToItem(prevIndex);
+            }
+        }
+    }
+    
+    items.forEach((item, index) => {
+        item.addEventListener('click', (e) => {
+            if (window.innerWidth > 768) {
+                return;
+            }
+            
+            if (e.target.tagName === 'A' || e.target.tagName === 'BUTTON' || e.target.closest('a') || e.target.closest('button')) {
+                return;
+            }
+            scrollToItem(index);
+        });
+    });
+}
+
 // Initialize carousel when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     initProductsCarousel();
-    
-    // Update on window resize
-    let resizeTimeout;
-    window.addEventListener('resize', () => {
-        clearTimeout(resizeTimeout);
-        resizeTimeout = setTimeout(() => {
-            const centeredIndex = getCurrentIndex();
-            updateActiveItem(centeredIndex);
-        }, 200);
-    });
+    initProjectsCarousel();
 });
 
