@@ -51,8 +51,18 @@ const TELEGRAM_CHAT_ID = TELEGRAM_CHAT_ID_ENV
 
 if (!TELEGRAM_BOT_TOKEN_FINAL || TELEGRAM_CHAT_ID === null || isNaN(TELEGRAM_CHAT_ID)) {
     console.error('ОШИБКА: Неверные настройки Telegram бота!');
+    console.error(`TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN ? 'установлен' : 'НЕ установлен'}`);
+    console.error(`TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID_ENV || 'НЕ установлен'} (парсинг: ${TELEGRAM_CHAT_ID})`);
     process.exit(1);
 }
+
+// Логирование настроек при запуске (без чувствительных данных)
+console.log('=== Настройки Telegram бота ===');
+console.log(`TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN ? '✅ установлен' : '❌ НЕ установлен'}`);
+console.log(`TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID} (тип: ${typeof TELEGRAM_CHAT_ID})`);
+console.log(`NODE_ENV: ${process.env.NODE_ENV || 'development'}`);
+console.log(`PORT: ${PORT}`);
+console.log('================================');
 
 if (!isProduction && (!process.env.TELEGRAM_BOT_TOKEN || !process.env.TELEGRAM_CHAT_ID)) {
     console.warn('⚠️  ВНИМАНИЕ: Используются захардкоженные значения для разработки.');
@@ -118,6 +128,10 @@ const server = http.createServer((req, res) => {
                 const data = JSON.parse(body);
                 const { name, phone, message } = data;
 
+                // Логирование для отладки (без чувствительных данных)
+                console.log(`[${new Date().toISOString()}] Получена заявка: имя=${name ? 'указано' : 'не указано'}, телефон=${phone ? 'указан' : 'не указан'}`);
+                console.log(`[${new Date().toISOString()}] Используется chat_id: ${TELEGRAM_CHAT_ID} (тип: ${typeof TELEGRAM_CHAT_ID})`);
+
                 // Формируем текст сообщения
                 const text = `📋 Новая заявка с сайта\n\n` +
                            `👤 Имя: ${name || 'Не указано'}\n` +
@@ -131,6 +145,8 @@ const server = http.createServer((req, res) => {
                     chat_id: TELEGRAM_CHAT_ID, // Уже число после parseInt
                     text: text
                 });
+                
+                console.log(`[${new Date().toISOString()}] Отправка в Telegram: URL=${telegramUrl.replace(TELEGRAM_BOT_TOKEN_FINAL, 'TOKEN_HIDDEN')}`);
 
                 const options = {
                     method: 'POST',
@@ -160,14 +176,24 @@ const server = http.createServer((req, res) => {
                             const telegramResponse = JSON.parse(telegramBody);
                             
                             if (telegramResponse.ok) {
+                                console.log(`[${new Date().toISOString()}] ✅ Сообщение успешно отправлено в Telegram`);
                                 res.writeHead(200, { 'Content-Type': 'application/json' });
                                 res.end(JSON.stringify({ success: true, message: 'Сообщение отправлено' }));
                             } else {
-                                console.error('Telegram API ошибка:', telegramResponse);
+                                console.error(`[${new Date().toISOString()}] ❌ Telegram API ошибка:`, telegramResponse);
+                                console.error(`[${new Date().toISOString()}] Используемый chat_id: ${TELEGRAM_CHAT_ID}`);
+                                
+                                // Более информативное сообщение об ошибке
+                                let errorMessage = telegramResponse.description || 'Ошибка отправки в Telegram';
+                                if (telegramResponse.error_code === 400 && errorMessage.includes('chat not found')) {
+                                    errorMessage = 'Ошибка: чат не найден. Проверьте TELEGRAM_CHAT_ID в настройках сервера.';
+                                }
+                                
                                 res.writeHead(400, { 'Content-Type': 'application/json' });
                                 res.end(JSON.stringify({ 
                                     success: false, 
-                                    error: telegramResponse.description || 'Ошибка отправки в Telegram' 
+                                    error: errorMessage,
+                                    error_code: telegramResponse.error_code
                                 }));
                             }
                         } catch (error) {
