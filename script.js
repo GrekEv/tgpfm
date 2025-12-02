@@ -97,8 +97,8 @@ let TELEGRAM_CHAT_ID = 467035682;
 
 // Server URL Configuration
 // Для локальной разработки: 'http://localhost:3000'
-// Для продакшена: замените на URL вашего сервера (например: 'https://ваш-сервер.onrender.com')
-const SERVER_URL = 'http://localhost:3000';
+// Для продакшена: URL сервера на Render.com
+const SERVER_URL = 'https://tgpfm.onrender.com';
 
 // Получить chat_id автоматически (требует, чтобы бот уже получил хотя бы одно сообщение)
 async function getChatId() {

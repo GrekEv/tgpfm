@@ -28,16 +28,16 @@
 ### Шаг 4: Деплой
 1. Нажмите **"Create Web Service"**
 2. Дождитесь завершения деплоя (2-3 минуты)
-3. Скопируйте URL вашего сервера (например: `https://telegram-bot-server.onrender.com`)
+3. Скопируйте URL вашего сервера (например: `https://tgpfm.onrender.com`)
 
 ### Шаг 5: Обновление script.js
 Замените в `script.js` строку:
 ```javascript
-const response = await fetch('http://localhost:3000/send-message', {
+const SERVER_URL = 'http://localhost:3000';
 ```
 на:
 ```javascript
-const response = await fetch('https://ваш-сервер.onrender.com/send-message', {
+const SERVER_URL = 'https://tgpfm.onrender.com';
 ```
 
 ---
@@ -138,16 +138,15 @@ pm2 startup
 
 ```javascript
 // Замените эту строку:
-const response = await fetch('http://localhost:3000/send-message', {
+const SERVER_URL = 'http://localhost:3000';
 
 // На URL вашего сервера:
-const response = await fetch('https://ваш-сервер.onrender.com/send-message', {
+const SERVER_URL = 'https://tgpfm.onrender.com';
 ```
 
-Или создайте переменную для удобства:
+Затем используйте переменную в запросах:
 
 ```javascript
-const SERVER_URL = 'https://ваш-сервер.onrender.com'; // или другой URL
 const response = await fetch(`${SERVER_URL}/send-message`, {
 ```
 
